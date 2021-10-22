@@ -27,7 +27,7 @@ all: test
 
 test: fhash_modules fhash_test.f90
 	$(FC) $(FFLAGS) fhash_modules.f90 fhash_test.f90 -o fhash_test.out  \
-        &&   ./fhash_test.out
+        &&   valgrind --quiet --leak-check=full  ./fhash_test.out
 
 benchmark: fhash_modules.f90 benchmark.f90
 	$(FC) $(FFLAGS_BASIC) $(FFLAGS_RELEASE) benchmark.f90 -o fhash_benchmark.out  && \
