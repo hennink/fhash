@@ -6,58 +6,58 @@
 ! Define the module for the key type.
 module ints_module
 
-  implicit none
+   implicit none
 
-  type ints_type
-    integer, allocatable :: ints(:)
-  end type
+   type ints_type
+      integer, allocatable :: ints(:)
+   end type
 
-  interface hash_value
-    module procedure hash_value_ints
-  end interface
+   interface hash_value
+      module procedure hash_value_ints
+   end interface
 
 contains
 
-  function hash_value_ints(ints) result(hash)
-    use, intrinsic :: iso_fortran_env, only: int64, real64
-    type(ints_type), intent(in) :: ints
-    integer(kind(ints%ints)) :: hash
+   function hash_value_ints(ints) result(hash)
+      use, intrinsic :: iso_fortran_env, only: int64, real64
+      type(ints_type), intent(in) :: ints
+      integer(kind(ints%ints)) :: hash
 
-    real(real64), parameter :: phi = (sqrt(5.0_real64) + 1) / 2
-    ! Do not use `nint` intrinsic, because ifort claims that  "Fortran 2018 specifies that
-    ! "an elemental intrinsic function here be of type integer or character and
-    !  each argument must be an initialization expr of type integer or character":
-    integer, parameter :: magic_number = 0.5d0 + 2.0d0**bit_size(hash) * (1 - 1 / phi)
-    integer :: i
+      real(real64), parameter :: phi = (sqrt(5.0_real64) + 1) / 2
+      ! Do not use `nint` intrinsic, because ifort claims that  "Fortran 2018 specifies that
+      ! "an elemental intrinsic function here be of type integer or character and
+      !  each argument must be an initialization expr of type integer or character":
+      integer, parameter :: magic_number = 0.5d0 + 2.0d0**bit_size(hash) * (1 - 1 / phi)
+      integer :: i
 
-    hash = 0
-    do i = 1, size(ints%ints)
-      ! This triggers an error in `gfortran` (version 9.3.0) with the `-ftrapv` option.
-      ! Compiler bug?
-      hash = ieor(hash, ints%ints(i) + magic_number + ishft(hash, 6) + ishft(hash, -2))
-    enddo
-  end function
+      hash = 0
+      do i = 1, size(ints%ints)
+         ! This triggers an error in `gfortran` (version 9.3.0) with the `-ftrapv` option.
+         ! Compiler bug?
+         hash = ieor(hash, ints%ints(i) + magic_number + ishft(hash, 6) + ishft(hash, -2))
+      enddo
+   end function
 
-  function ints_equal(lhs, rhs)
-    type(ints_type), intent(in) :: lhs, rhs
-    logical :: ints_equal
-    integer :: i
+   function ints_equal(lhs, rhs)
+      type(ints_type), intent(in) :: lhs, rhs
+      logical :: ints_equal
+      integer :: i
 
-    if (size(lhs%ints) /= size(rhs%ints)) then
-      ints_equal = .false.
-      return
-    endif
-
-    do i = 1, size(lhs%ints)
-      if (lhs%ints(i) /= rhs%ints(i)) then
-        ints_equal = .false.
-        return
+      if (size(lhs%ints) /= size(rhs%ints)) then
+         ints_equal = .false.
+         return
       endif
-    enddo
 
-    ints_equal = .true.
+      do i = 1, size(lhs%ints)
+         if (lhs%ints(i) /= rhs%ints(i)) then
+            ints_equal = .false.
+            return
+         endif
+      enddo
 
-  end function
+      ints_equal = .true.
+
+   end function
 end module ints_module
 
 ! Define the macros needed by fhash and include fhash.f90
