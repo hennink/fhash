@@ -38,9 +38,21 @@ compilers["llvm"] = Compiler(**{
    "cpp": 'clang++'
 })
 
-for vendor, c in compilers.items():
-   prog = f"test_{vendor}"
-   print(f"{c.f90} {c.cflags} {c.f90_cflags} fhash_modules.f90 fhash_test.f90 -o {prog} && ", end='')
+def test_compiler(c : Compiler):
+   prog = f"test_{c.f90}"
    # Insist on valgind, because this is a container implementation with raw pointers inside:
-   print(f"valgrind --quiet ./{prog} &&", end='')
-print("echo ALL TESTS PASSED")
+   return f"""
+      {c.f90} {c.cflags} {c.f90_cflags} fhash_modules.f90 fhash_test.f90 -o {prog}
+      valgrind --quiet ./{prog}
+      echo {c.f90} passed
+   """.strip()
+
+tests = [f"({test_compiler(c)}) &" for _, c in compilers.items()]
+test_all = "\n".join(tests)
+test_prog = f"""(
+   set -e
+   {test_all}
+   wait
+   echo 'ALL TESTS PASSED'
+)"""
+print(test_prog)
