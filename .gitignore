@@ -1,5 +1,4 @@
 *.dSYM
-fhash_test
 .vscode/
 .vs/
 ref.out
@@ -41,3 +40,4 @@ x64/[Rr]elease/
 *.exe
 *.out
 *.app
+test_*
