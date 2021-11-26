@@ -29,21 +29,21 @@
 #endif
 
 #ifdef __GFORTRAN__
-#    define PASTE(a) a
-#    define CONCAT(a,b) PASTE(a)b
+#    define _FHASH_PASTE(a) a
+#    define _FHASH_CONCAT(a,b) _FHASH_PASTE(a)b
 #else
-#    define PASTE(a,b) a ## b
-#    define CONCAT(a,b) PASTE(a,b)
+#    define _FHASH_PASTE(a,b) a ## b
+#    define _FHASH_CONCAT(a,b) _FHASH_PASTE(a,b)
 #endif
-#define FHASH_MODULE_NAME CONCAT(FHASH_NAME,_mod)
-#define FHASH_TYPE_NAME CONCAT(FHASH_NAME,_t)
-#define FHASH_TYPE_ITERATOR_NAME CONCAT(FHASH_NAME,_iter_t)
-#define FHASH_TYPE_KV_TYPE_NAME CONCAT(FHASH_NAME,_kv_t)
-#define FHASH_SORT_KV_NAME CONCAT(sort_,FHASH_NAME)
+#define _FHASH_MODULE_NAME _FHASH_CONCAT(FHASH_NAME,_mod)
+#define _FHASH_TYPE_NAME _FHASH_CONCAT(FHASH_NAME,_t)
+#define _FHASH_TYPE_ITERATOR_NAME _FHASH_CONCAT(FHASH_NAME,_iter_t)
+#define _FHASH_TYPE_KV_TYPE_NAME _FHASH_CONCAT(FHASH_NAME,_kv_t)
+#define _FHASH_SORT_KV_NAME _FHASH_CONCAT(sort_,FHASH_NAME)
 
 ! For some bizar reason both gfortran-10 and ifort-2021.4 fail to compile, unless
 ! this function has a unique name for every time that this file is included:
-#define __COMPARE_AT_IDX CONCAT(fhash_type_compare__,FHASH_NAME)
+#define _FHASH_COMPARE_AT_IDX _FHASH_CONCAT(fhash_type_compare__,FHASH_NAME)
 
 #ifdef VALUE_POINTER
 #   define VALUE_ASSIGNMENT =>
@@ -54,15 +54,15 @@
 ! Not all compilers implement finalization:
 #if defined __GFORTRAN__ && __GNUC__ <= 5
 #else
-#   define _FINAL_IS_IMPLEMENTED
+#   define _FHASH_FINAL_IS_IMPLEMENTED
 #endif
-#ifdef _FINAL_IS_IMPLEMENTED
-#   define _FINAL_TYPEORCLASS type
+#ifdef _FHASH_FINAL_IS_IMPLEMENTED
+#   define _FHASH_FINAL_TYPEORCLASS type
 #else
-#   define _FINAL_TYPEORCLASS class
+#   define _FHASH_FINAL_TYPEORCLASS class
 #endif
 
-module FHASH_MODULE_NAME
+module _FHASH_MODULE_NAME
 
 #ifdef KEY_USE
    KEY_USE
@@ -77,19 +77,19 @@ module FHASH_MODULE_NAME
 
    private
 
-   public :: FHASH_TYPE_NAME
-   public :: FHASH_TYPE_ITERATOR_NAME
-   public :: FHASH_TYPE_KV_TYPE_NAME
-   public :: FHASH_SORT_KV_NAME ! for convenience, because it's hard for the users to write a generic sort
+   public :: _FHASH_TYPE_NAME
+   public :: _FHASH_TYPE_ITERATOR_NAME
+   public :: _FHASH_TYPE_KV_TYPE_NAME
+   public :: _FHASH_SORT_KV_NAME ! for convenience, because it's hard for the users to write a generic sort
    ! (that circumvents the compiler bugs when passing pointers to internal functions to `qsort`)
 
-   type :: FHASH_TYPE_KV_TYPE_NAME
+   type :: _FHASH_TYPE_KV_TYPE_NAME
       KEY_TYPE :: key
       VALUE_TYPE :: value
    end type
 
    type :: node_type
-      type(FHASH_TYPE_KV_TYPE_NAME), allocatable :: kv
+      type(_FHASH_TYPE_KV_TYPE_NAME), allocatable :: kv
       type(node_type), pointer :: next => null()
 
    contains
@@ -102,7 +102,7 @@ module FHASH_MODULE_NAME
       ! Fortunately this type is not public, and it gets deallocated when finalizing the fhash.
    end type
 
-   type FHASH_TYPE_NAME
+   type _FHASH_TYPE_NAME
       private
 
       integer :: n_keys = 0
@@ -146,7 +146,7 @@ module FHASH_MODULE_NAME
 
       ! Clear all the allocated memory
       procedure, non_overridable, public :: clear
-#ifdef _FINAL_IS_IMPLEMENTED
+#ifdef _FHASH_FINAL_IS_IMPLEMENTED
       final :: clear_final
 #endif
       generic, public :: assignment(=) => deepcopy_fhash
@@ -155,12 +155,12 @@ module FHASH_MODULE_NAME
       procedure, non_overridable, private :: key2bucket
    end type
 
-   type FHASH_TYPE_ITERATOR_NAME
+   type _FHASH_TYPE_ITERATOR_NAME
       private
 
       integer :: bucket_id
       type(node_type), pointer :: node_ptr => null()
-      type(FHASH_TYPE_NAME), pointer :: fhash_ptr => null()
+      type(_FHASH_TYPE_NAME), pointer :: fhash_ptr => null()
 
    contains
       ! Set the iterator to the beginning of a hash table.
@@ -187,7 +187,7 @@ module FHASH_MODULE_NAME
       end function
    end interface
    procedure(compare_keys_i), pointer :: global_compare_ptr => null()
-   type(FHASH_TYPE_KV_TYPE_NAME), pointer :: global_sorted_kv_list_ptr(:) => null()
+   type(_FHASH_TYPE_KV_TYPE_NAME), pointer :: global_sorted_kv_list_ptr(:) => null()
 
 contains
    logical function keys_equal(a, b)
@@ -201,7 +201,7 @@ contains
    end function
 
    function bucket_count(this)
-      class(FHASH_TYPE_NAME), intent(in) :: this
+      class(_FHASH_TYPE_NAME), intent(in) :: this
       integer :: bucket_count
 
       if (.not. associated(this%buckets)) then
@@ -212,7 +212,7 @@ contains
    end function
 
    function n_collisions(this)
-      class(FHASH_TYPE_NAME), intent(in) :: this
+      class(_FHASH_TYPE_NAME), intent(in) :: this
       integer :: n_collisions
       integer :: i
 
@@ -236,7 +236,7 @@ contains
    end function
 
    impure elemental subroutine reserve(this, n_buckets)
-      class(FHASH_TYPE_NAME), intent(out) :: this
+      class(_FHASH_TYPE_NAME), intent(out) :: this
       integer, intent(in) :: n_buckets
 
       integer :: i
@@ -258,14 +258,14 @@ contains
    end subroutine
 
    impure elemental function key_count(this)
-      class(FHASH_TYPE_NAME), intent(in) :: this
+      class(_FHASH_TYPE_NAME), intent(in) :: this
       integer :: key_count
 
       key_count = this%n_keys
    end function
 
    subroutine set(this, key, value)
-      class(FHASH_TYPE_NAME), intent(inout) :: this
+      class(_FHASH_TYPE_NAME), intent(inout) :: this
       KEY_TYPE, intent(in) :: key
       VALUE_TYPE, intent(in) :: value
       integer :: bucket_id
@@ -303,7 +303,7 @@ contains
    end subroutine
 
    subroutine get(this, key, value, success)
-      class(FHASH_TYPE_NAME), intent(in) :: this
+      class(_FHASH_TYPE_NAME), intent(in) :: this
       KEY_TYPE, intent(in) :: key
       VALUE_TYPE, intent(out) :: value
       logical, optional, intent(out) :: success
@@ -341,7 +341,7 @@ contains
 
 #ifndef VALUE_POINTER
    function get_ptr_or_null(this, key) result(value)
-      class(FHASH_TYPE_NAME), intent(in) :: this
+      class(_FHASH_TYPE_NAME), intent(in) :: this
       KEY_TYPE, intent(in) :: key
       VALUE_TYPE, pointer :: value
 
@@ -374,7 +374,7 @@ contains
    end function
 
    function get_ptr_or_autoval(this, key, autoval) result(value)
-      class(FHASH_TYPE_NAME), intent(inout) :: this
+      class(_FHASH_TYPE_NAME), intent(inout) :: this
       KEY_TYPE, intent(in) :: key
       VALUE_TYPE, intent(in) :: autoval
       VALUE_TYPE, pointer :: value
@@ -423,7 +423,7 @@ contains
 #endif
 
    subroutine remove(this, key, success)
-      class(FHASH_TYPE_NAME), intent(inout) :: this
+      class(_FHASH_TYPE_NAME), intent(inout) :: this
       KEY_TYPE, intent(in) :: key
       logical, optional, intent(out) :: success
 
@@ -485,11 +485,11 @@ contains
    end subroutine
 
    subroutine as_list(this, kv_list)
-      class(FHASH_TYPE_NAME), target, intent(in) :: this
-      type(FHASH_TYPE_KV_TYPE_NAME), intent(out) :: kv_list(:)
+      class(_FHASH_TYPE_NAME), target, intent(in) :: this
+      type(_FHASH_TYPE_KV_TYPE_NAME), intent(out) :: kv_list(:)
 
       integer :: i, n
-      type(FHASH_TYPE_ITERATOR_NAME) :: iter
+      type(_FHASH_TYPE_ITERATOR_NAME) :: iter
       integer :: iter_stat
 
       n = this%key_count()
@@ -503,16 +503,16 @@ contains
    end subroutine
 
    subroutine as_sorted_list(this, kv_list, compare)
-      class(FHASH_TYPE_NAME), target, intent(in) :: this
-      type(FHASH_TYPE_KV_TYPE_NAME), target, intent(out) :: kv_list(:)
+      class(_FHASH_TYPE_NAME), target, intent(in) :: this
+      type(_FHASH_TYPE_KV_TYPE_NAME), target, intent(out) :: kv_list(:)
       procedure(compare_keys_i) :: compare
 
       call this%as_list(kv_list)
-      call FHASH_SORT_KV_NAME(kv_list, compare)
+      call _FHASH_SORT_KV_NAME(kv_list, compare)
    end subroutine
 
-   subroutine FHASH_SORT_KV_NAME(kv_list, compare)
-      type(FHASH_TYPE_KV_TYPE_NAME), target, intent(inout) :: kv_list(:)
+   subroutine _FHASH_SORT_KV_NAME(kv_list, compare)
+      type(_FHASH_TYPE_KV_TYPE_NAME), target, intent(inout) :: kv_list(:)
       procedure(compare_keys_i) :: compare
 
       call assert(.not. (associated(global_compare_ptr) .or. associated(global_sorted_kv_list_ptr)), &
@@ -534,10 +534,10 @@ contains
       use, intrinsic :: iso_c_binding, only: c_int
       use, intrinsic :: iso_fortran_env, only: int8, int16
 
-      type(FHASH_TYPE_KV_TYPE_NAME), intent(inout) :: x(:)
+      type(_FHASH_TYPE_KV_TYPE_NAME), intent(inout) :: x(:)
       integer(c_int), intent(in) :: perm(:)
 
-      type(FHASH_TYPE_KV_TYPE_NAME) :: temp
+      type(_FHASH_TYPE_KV_TYPE_NAME) :: temp
       integer :: i, n, j, jnew
       integer, parameter :: smallest_int = merge(int8, int16, int8 > 0)
       logical(smallest_int), allocatable :: done(:)
@@ -568,8 +568,8 @@ contains
    end subroutine
 
    impure elemental subroutine deepcopy_fhash(lhs, rhs)
-      class(FHASH_TYPE_NAME), intent(out) :: lhs
-      type(FHASH_TYPE_NAME), intent(in) :: rhs
+      class(_FHASH_TYPE_NAME), intent(out) :: lhs
+      type(_FHASH_TYPE_NAME), intent(in) :: rhs
 
       integer :: i
 
@@ -599,7 +599,7 @@ contains
    end subroutine
 
    impure elemental integer function fhash_deep_storage_size(this, keyval_ss) result(s)
-      class(FHASH_TYPE_NAME), intent(in) :: this
+      class(_FHASH_TYPE_NAME), intent(in) :: this
       integer, intent(in) :: keyval_ss
 
       integer :: i
@@ -621,7 +621,7 @@ contains
    end function
 
    impure elemental subroutine clear(this)
-      class(FHASH_TYPE_NAME), intent(inout) :: this
+      class(_FHASH_TYPE_NAME), intent(inout) :: this
 
       integer :: i
 
@@ -635,9 +635,9 @@ contains
       endif
    end subroutine
 
-#ifdef _FINAL_IS_IMPLEMENTED
+#ifdef _FHASH_FINAL_IS_IMPLEMENTED
    impure elemental subroutine clear_final(this)
-      type(FHASH_TYPE_NAME), intent(inout) :: this
+      type(_FHASH_TYPE_NAME), intent(inout) :: this
 
       call this%clear()
    end subroutine
@@ -646,7 +646,7 @@ contains
    subroutine clear_children(node)
       ! Not a recursive subroutine, because (i) this is much more performant, and
       ! (ii) gfortran thinks that it cannot be both elemental and recursive.
-      _FINAL_TYPEORCLASS(node_type), intent(inout) :: node
+      _FHASH_FINAL_TYPEORCLASS(node_type), intent(inout) :: node
 
       type(node_type), pointer :: prev, next
 
@@ -660,7 +660,7 @@ contains
    end subroutine
 
    integer function key2bucket(this, key) result(bucket_id)
-      class(FHASH_TYPE_NAME), intent(in) :: this
+      class(_FHASH_TYPE_NAME), intent(in) :: this
       KEY_TYPE, intent(in) :: key
 
       integer :: hash
@@ -674,8 +674,8 @@ contains
    end function
 
    subroutine begin(this, fhash_target)
-      class(FHASH_TYPE_ITERATOR_NAME), intent(inout) :: this
-      type(FHASH_TYPE_NAME), target, intent(in) :: fhash_target
+      class(_FHASH_TYPE_ITERATOR_NAME), intent(inout) :: this
+      type(_FHASH_TYPE_NAME), target, intent(in) :: fhash_target
 
       call assert(associated(fhash_target%buckets), "cannot start iteration when fhash is empty")
 
@@ -685,7 +685,7 @@ contains
    end subroutine
 
    subroutine next(this, key, value, status)
-      class(FHASH_TYPE_ITERATOR_NAME), intent(inout) :: this
+      class(_FHASH_TYPE_ITERATOR_NAME), intent(inout) :: this
       KEY_TYPE, intent(out) :: key
       VALUE_TYPE, intent(out) :: value
       integer, optional, intent(out) :: status
@@ -756,7 +756,7 @@ contains
       endif
    end subroutine
 
-   integer(c_int) function __COMPARE_AT_IDX(c_a, c_b) bind(C)
+   integer(c_int) function _FHASH_COMPARE_AT_IDX(c_a, c_b) bind(C)
    use, intrinsic :: iso_c_binding, only: c_int, c_ptr, c_f_pointer
 
    type(c_ptr), value :: c_a, c_b
@@ -765,7 +765,7 @@ contains
 
    call c_f_pointer(c_a, f_a)
    call c_f_pointer(c_b, f_b)
-   __COMPARE_AT_IDX = int(global_compare_ptr(global_sorted_kv_list_ptr(f_a)%key, &
+   _FHASH_COMPARE_AT_IDX = int(global_compare_ptr(global_sorted_kv_list_ptr(f_a)%key, &
       global_sorted_kv_list_ptr(f_b)%key), kind=c_int)
 end function
 
@@ -797,24 +797,25 @@ function sorting_perm() result(perm)
    do i = 1, n
       perm(i) = i
    enddo
-   fun = c_funloc(__COMPARE_AT_IDX)
+   fun = c_funloc(_FHASH_COMPARE_AT_IDX)
    if (n > 0_c_int) call c_qsort(c_loc(perm(1)), int(n, kind=c_size_t), c_sizeof(perm(1)), fun)
 end function
 end module
 
+#undef _FHASH_MODULE_NAME
+#undef _FHASH_TYPE_NAME
+#undef _FHASH_TYPE_ITERATOR_NAME
+#undef _FHASH_TYPE_KV_TYPE_NAME
+#undef _FHASH_SORT_KV_NAME
+#undef _FHASH_FINAL_IS_IMPLEMENTED
+#undef _FHASH_FINAL_TYPEORCLASS
+#undef _FHASH_COMPARE_AT_IDX
+#undef _FHASH_CONCAT
+#undef _FHASH_PASTE
 #undef FHASH_NAME
-#undef FHASH_MODULE_NAME
-#undef FHASH_TYPE_NAME
-#undef FHASH_TYPE_ITERATOR_NAME
-#undef FHASH_TYPE_KV_TYPE_NAME
-#undef HASH_FUNC
-#undef _FINAL_IS_IMPLEMENTED
-#undef _FINAL_TYPEORCLASS
-#undef __COMPARE_AT_IDX
 #undef KEY_TYPE
-#undef KEYS_EQUAL_FUNC
 #undef VALUE_TYPE
+#undef KEYS_EQUAL_FUNC
+#undef HASH_FUNC
 #undef VALUE_TYPE_INIT
 #undef VALUE_ASSIGNMENT
-#undef CONCAT
-#undef PASTE
