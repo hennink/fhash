@@ -239,12 +239,11 @@ program fhash_test
   call test_deep_storage_size()
   call test_assignment()
 
-  print *, 'ALL TESTS PASSED.'
-  contains
+contains
 
   subroutine test_contructor()
     type(ints_double_t) h
-    if (h%key_count() /= 0) stop 'expect no keys'
+    if (h%key_count() /= 0) error stop 'expect no keys'
   end subroutine
 
   subroutine test_reserve()
@@ -269,25 +268,25 @@ program fhash_test
       key%ints(i) = i
 
       call h%get(key, value, success)
-      if (success) stop 'expect not found'
+      if (success) error stop 'expect not found'
 
       val_ptr => h%get_ptr(key)
       call assert(.not. associated(val_ptr), "expected a null pointer")
 
       call h%set(key, i * 0.5_real64)
       call h%get(key, value)
-      if (abs(value - i * 0.5_real64) > epsilon(value)) stop 'expect to get 0.5 i'
+      if (abs(value - i * 0.5_real64) > epsilon(value)) error stop 'expect to get 0.5 i'
 
       val_ptr => h%get_ptr(key)
       call assert(associated(val_ptr), "expected a, associated pointer")
       call assert(abs(val_ptr - i * 0.5_real64) <= epsilon(val_ptr), 'expect to get pointer value of 0.5 i')
     enddo
-    if (h%key_count() /= 10) stop 'expect key count to be 10'
-    if (h%n_collisions() >= 10 .or. h%n_collisions() < 5) stop 'expect n_collisions in [5, 10)'
+    if (h%key_count() /= 10) error stop 'expect key count to be 10'
+    if (h%n_collisions() >= 10 .or. h%n_collisions() < 5) error stop 'expect n_collisions in [5, 10)'
 
     call h%clear()
-    if (h%key_count() /= 0) stop 'expect no keys'
-    if (h%bucket_count() /= 0) stop 'expect no buckets'
+    if (h%key_count() /= 0) error stop 'expect no keys'
+    if (h%bucket_count() /= 0) error stop 'expect no buckets'
   end subroutine
 
   subroutine test_insert_and_get_int_ints_ptr()
@@ -301,11 +300,11 @@ program fhash_test
     value_ptr => value
     call h%set(0, value_ptr)
     call h%get(0, value_ptr2, success)
-    if (value_ptr2%ints(1) /= 0) stop 'expect ints(1) to be 0'
+    if (value_ptr2%ints(1) /= 0) error stop 'expect ints(1) to be 0'
     value_ptr2%ints(1) = 1
 
     call h%get(0, value_ptr3, success)
-    if (value_ptr3%ints(1) /= 1) stop 'expect ints(1) to be 1'
+    if (value_ptr3%ints(1) /= 1) error stop 'expect ints(1) to be 1'
   end subroutine
 
   subroutine test_insert_get_and_remove_int_ints_ptr()
@@ -331,41 +330,41 @@ program fhash_test
       call h%set(i, pValue)
     end do
     
-    if (h%key_count() .ne. num_values) stop 'expect different key count'
+    if (h%key_count() .ne. num_values) error stop 'expect different key count'
 
     ! get
     do i = num_values, i, -1
       call h%get(i, pValue, success)
-      if (.not. success) stop 'expect a value for given key '
-      if (pValue%ints(1) .ne. pValues(i)%ints(1)) stop 'expect different value for given key'
+      if (.not. success) error stop 'expect a value for given key '
+      if (pValue%ints(1) .ne. pValues(i)%ints(1)) error stop 'expect different value for given key'
     end do
     
     ! remove first item
     do i = 1, num_values
       if (mod(i, 5) .eq. 1) then
         call h%remove(i, success)
-        if (.not. success) stop 'expect to successfully remove item with given key '
+        if (.not. success) error stop 'expect to successfully remove item with given key '
       endif
     end do
-    if (h%key_count() .ne. num_values-10) stop 'expect different key count'
+    if (h%key_count() .ne. num_values-10) error stop 'expect different key count'
 
     ! remove first item (fail)
     do i = 1, num_values
       if (mod(i, 5) .eq. 1) then
         call h%remove(i, success)
-        if (success) stop 'expect that remove item with given key fails'
+        if (success) error stop 'expect that remove item with given key fails'
       endif
     end do
-    if (h%key_count() .ne. num_values-10) stop 'expect  different key count'
+    if (h%key_count() .ne. num_values-10) error stop 'expect  different key count'
 
     ! remove middle item
     do i = 1, num_values
       if (mod(i, 5) .eq. 4) then
         call h%remove(i, success)
-        if (.not. success) stop 'expect to successfully remove item with given key '
+        if (.not. success) error stop 'expect to successfully remove item with given key '
       endif
     end do
-    if (h%key_count() .ne. num_values-20) stop 'expect different key count'
+    if (h%key_count() .ne. num_values-20) error stop 'expect different key count'
 
     nullify (pValue)
 
@@ -374,13 +373,13 @@ program fhash_test
     do while (.true.)
       call it%next(key, pValue, status)
       if (status /= 0) exit
-      if (key .ne. pValue%ints(1)) stop 'expect to retrieve matching key value pair'
-      if (mod(key, 5) .eq. 1) stop 'expect not to get deleted keys'
-      if (mod(key, 5) .eq. 4) stop 'expect not to get deleted keys'
+      if (key .ne. pValue%ints(1)) error stop 'expect to retrieve matching key value pair'
+      if (mod(key, 5) .eq. 1) error stop 'expect not to get deleted keys'
+      if (mod(key, 5) .eq. 4) error stop 'expect not to get deleted keys'
     end do
 #ifdef CHECK_ITERATOR_VALUE
 #undef CHECK_ITERATOR_VALUE
-    if (associated(pValue)) stop 'expect .not. associated(pValue)'
+    if (associated(pValue)) error stop 'expect .not. associated(pValue)'
 #endif
 
     call h%clear()
@@ -413,23 +412,23 @@ program fhash_test
     
     do i = 1, 10
       call it%next(key, value, status)
-      if (status /= 0) stop 'expect to get key value with status 0'
+      if (status /= 0) error stop 'expect to get key value with status 0'
 
       ! Check for consistency.
       i_found = nint(value / 0.5)
-      if (found(i_found)) stop 'expect no duplicate'
+      if (found(i_found)) error stop 'expect no duplicate'
       found(i_found) = .true.
       do j = 1, i_found
-        if (key%ints(j) /= j) stop 'expect to get j'
+        if (key%ints(j) /= j) error stop 'expect to get j'
       enddo
       do j = i_found + 1, 10
-        if (key%ints(j) /= 0) stop 'expect to get 0'
+        if (key%ints(j) /= 0) error stop 'expect to get 0'
       enddo
     enddo
 
     ! Check end of hash table.
     call it%next(key, value, status)
-    if (status /= -1) stop 'expect to return -1'
+    if (status /= -1) error stop 'expect to return -1'
     
     call h%clear()
   end subroutine
