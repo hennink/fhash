@@ -548,11 +548,12 @@ contains
     allocate(done(n))
     done = .false._smallest_int
     do i = 1, n
-      ! Follow the permutations, which form a cycle:
+      if (done(i)) cycle
+      ! Follow the permutations, which form a cycle.
+      ! (All KV copies could be replaced by a cheaper user-defined move function.)
       j = i
       temp = x(i)
       do
-        if (done(j)) exit
         jnew = perm(j)
         if (jnew == i) then
           x(j) = temp
@@ -561,6 +562,7 @@ contains
         endif
         done(j) = .true._smallest_int
         j = jnew
+        if (done(j)) exit
       enddo
     enddo
   end subroutine
