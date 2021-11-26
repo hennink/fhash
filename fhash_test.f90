@@ -377,10 +377,6 @@ contains
          if (mod(key, 5) .eq. 1) error stop 'expect not to get deleted keys'
          if (mod(key, 5) .eq. 4) error stop 'expect not to get deleted keys'
       end do
-#ifdef CHECK_ITERATOR_VALUE
-#undef CHECK_ITERATOR_VALUE
-      if (associated(pValue)) error stop 'expect .not. associated(pValue)'
-#endif
 
       call h%clear()
    end subroutine
