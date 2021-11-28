@@ -115,8 +115,8 @@ module _FHASH_MODULE_NAME
       ! Return the number of collisions.
       procedure, non_overridable, public :: n_collisions
 
-      ! Reserve certain number of buckets.
       procedure, non_overridable, public :: reserve
+      procedure, non_overridable, public :: resize
 
       ! Returns number of keys.
       procedure, non_overridable, public :: key_count
@@ -159,6 +159,7 @@ module _FHASH_MODULE_NAME
 
       integer :: bucket_id
       type(node_type), pointer :: next_node => null()
+      logical :: next_is_at_base
       type(node_type), pointer :: buckets_ptr(:) => null()
 
    contains
@@ -260,6 +261,42 @@ contains
             exit
          endif
       enddo
+   end subroutine
+
+   subroutine resize(this, new_n_buckets)
+      ! Copy into a new hash. Delete the old hash during the copying to reduce the maximum memory consumption.
+      class(_FHASH_TYPE_NAME), intent(inout) :: this
+      integer, intent(in) :: new_n_buckets
+
+      type(_FHASH_TYPE_NAME) :: new
+      type(_FHASH_TYPE_ITERATOR_NAME) :: iter
+
+      type(node_type), pointer :: prev
+      logical :: dealloc_prev
+      integer :: i, n
+
+      if (.not. associated(this%buckets)) then
+         call this%reserve(new_n_buckets)
+         return
+      endif
+
+      call new%reserve(new_n_buckets)
+      n = this%key_count()
+
+      call iter%begin(this)
+      do i = 1, n
+         dealloc_prev = .not. iter%next_is_at_base
+         prev => iter%next_node
+         call move_into_fhash(new, prev%kv)
+         call progress_to_next_node(iter)
+         if (dealloc_prev) deallocate(prev)
+      enddo
+      call assert(n == new%key_count(), "INTERNAL ERROR: resize: inconsistent key count")
+
+      this%n_keys = n
+      deallocate(this%buckets)
+      this%buckets => new%buckets
+      new%buckets => null() ! to prevent finalization
    end subroutine
 
    impure elemental function key_count(this)
@@ -729,6 +766,7 @@ contains
       this%bucket_id = 1
       this%buckets_ptr => fhash_target%buckets
       this%next_node => fhash_target%buckets(1)
+      this%next_is_at_base = .true.
       if (.not. allocated(this%next_node%kv)) call progress_to_next_node(this)
    end subroutine
 
@@ -758,6 +796,7 @@ contains
       do
          if (associated(this%next_node%next)) then
             this%next_node => this%next_node%next
+            this%next_is_at_base = .false.
             exit
          endif
 
@@ -768,6 +807,7 @@ contains
 
          this%bucket_id = this%bucket_id + 1
          this%next_node => this%buckets_ptr(this%bucket_id)
+         this%next_is_at_base = .true.
          if (allocated(this%next_node%kv)) exit
       enddo
    end subroutine

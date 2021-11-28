@@ -36,6 +36,41 @@ contains
       call assert(size(i2i_ptr_kv) == 0, "expected empty list")
    end subroutine
 
+   subroutine test_resize()
+      use i2char_mod
+
+      type(i2char_t) :: h
+      type(i2char_kv_t) :: all_kv(200)
+      integer :: i
+
+      call h%resize(10)
+      do i = 1, size(all_kv)
+         all_kv(i)%key = i
+         write(all_kv(i)%value, "(i0)") i
+         call h%set(all_kv(i)%key, all_kv(i)%value)
+      enddo
+      call check_kv()
+
+      call h%resize(100)
+      call check_kv()
+
+      call h%resize(1000)
+      call check_kv()
+
+      call h%resize(1)
+      call check_kv()
+
+   contains
+      subroutine check_kv()
+
+         type(i2char_kv_t) :: h_list(size(all_kv))
+
+         call h%as_sorted_list(h_list, compare_ints)
+         call assert(h_list%key == all_kv%key, "test_resize: got a bad list of keys")
+         call assert(h_list%value == all_kv%value, "test_resize: got a bad list of values")
+      end subroutine
+   end subroutine
+
    subroutine test_insert_get_and_remove_int_ints_ptr()
       use int_ints_ptr_mod
 
@@ -382,6 +417,7 @@ program fhash_test
    implicit none
 
    call test_empty_hashes()
+   call test_resize()
    call test_get_ptr()
    call test_contructor()
    call test_reserve()
