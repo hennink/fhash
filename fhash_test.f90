@@ -5,6 +5,25 @@ module tests_mod
    implicit none
 
 contains
+   subroutine test_empty_hashes()
+      use i2char_mod
+      use ints_double_mod
+      use int_ints_ptr_mod
+
+      type(i2char_t) :: i2char
+      type(ints_double_t) :: i2r
+      type(int_ints_ptr_t) :: i2i_ptr
+
+      call assert(i2char%n_collisions() == 0, "expected i2char%n_collisions() == 0")
+      call assert(i2char%key_count() == 0, "expected i2char%key_count() == 0")
+
+      call assert(i2r%n_collisions() == 0, "expected i2r%n_collisions() == 0")
+      call assert(i2r%key_count() == 0, "expected i2r%key_count() == 0")
+      
+      call assert(i2i_ptr%n_collisions() == 0, "expected i2i_ptr%n_collisions() == 0")
+      call assert(i2i_ptr%key_count() == 0, "expected i2i_ptr%key_count() == 0")
+   end subroutine
+
    subroutine test_as_list
       use i2char_mod
 
@@ -227,6 +246,7 @@ program fhash_test
    use tests_mod
    implicit none
 
+   call test_empty_hashes()
    call test_get_ptr()
    call test_contructor()
    call test_reserve()

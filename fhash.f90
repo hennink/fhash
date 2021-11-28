@@ -216,14 +216,15 @@ contains
    function n_collisions(this)
       class(_FHASH_TYPE_NAME), intent(in) :: this
       integer :: n_collisions
+
       integer :: i
 
-      call assert(associated(this%buckets), "n_collisions: fhash has not been initialized")
-
       n_collisions = 0
-      do i = 1, size(this%buckets)
-         n_collisions = n_collisions + node_depth(this%buckets(i)) - 1
-      enddo
+      if (associated(this%buckets)) then
+         do i = 1, size(this%buckets)
+            n_collisions = n_collisions + node_depth(this%buckets(i)) - 1
+         enddo
+      endif
    end function
 
    recursive function node_depth(this) result(depth)
