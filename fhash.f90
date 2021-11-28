@@ -160,7 +160,7 @@ module _FHASH_MODULE_NAME
 
       integer :: bucket_id
       type(node_type), pointer :: next_node => null()
-      type(_FHASH_TYPE_NAME), pointer :: fhash_ptr => null()
+      type(node_type), pointer :: buckets_ptr(:) => null()
 
    contains
       procedure, non_overridable, public :: begin
@@ -703,13 +703,13 @@ contains
 
    subroutine begin(this, fhash_target)
       class(_FHASH_TYPE_ITERATOR_NAME), intent(inout) :: this
-      type(_FHASH_TYPE_NAME), target, intent(in) :: fhash_target
+      type(_FHASH_TYPE_NAME), intent(in) :: fhash_target
 
       call assert(associated(fhash_target%buckets), "cannot start iteration when fhash is empty")
 
       this%bucket_id = 1
       this%next_node => fhash_target%buckets(1)
-      this%fhash_ptr => fhash_target
+      this%buckets_ptr => fhash_target%buckets
       if (.not. allocated(this%next_node%kv)) call progress_to_next_node(this)
    end subroutine
 
@@ -742,13 +742,13 @@ contains
             exit
          endif
 
-         if (this%bucket_id == size(this%fhash_ptr%buckets)) then
+         if (this%bucket_id == size(this%buckets_ptr)) then
             this%next_node => null()
             exit
          endif
 
          this%bucket_id = this%bucket_id + 1
-         this%next_node => this%fhash_ptr%buckets(this%bucket_id)
+         this%next_node => this%buckets_ptr(this%bucket_id)
          if (allocated(this%next_node%kv)) exit
       enddo
    end subroutine
