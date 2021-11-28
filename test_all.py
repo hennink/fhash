@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
+import argparse
 import collections
 
-Compiler = collections.namedtuple("Compiler", "f90 cpp lflags cflags cflags_devel f90_cflags cpp_cflags")
+Compiler = collections.namedtuple("Compiler", "f90 cpp cflags cflags_devel cflags_optim f90_cflags cpp_cflags")
 
 compilers = {
    "gnu": Compiler(
-      f90='gfortran', cpp='g++', cflags='-g -fbacktrace -Wall -Wextra -cpp',
-      lflags = "",
+      f90='gfortran', cpp='g++',
+      cflags='-g -fbacktrace -Wall -Wextra -cpp',
       # Some of these are not specific for Fortran:
       f90_cflags="""
       -std=f2008 -pedantic -Werror
@@ -21,15 +22,16 @@ compilers = {
       -Wno-conversion
       -Wno-implicit-interface -Wno-strict-overflow
       """.replace('\n',''),
-      cflags_devel="-O0 -fcheck=all -fbounds-check -Warray-bounds -Wstrict-overflow=5 -Wunderflow -ffpe-trap=invalid,zero,overflow",
       cpp_cflags="",
+      cflags_devel="-O0 -fcheck=all -fbounds-check -Warray-bounds -Wstrict-overflow=5 -Wunderflow -ffpe-trap=invalid,zero,overflow",
+      cflags_optim="-O3",
    ),
    "intel": Compiler(
       f90='ifort', cpp='icpc', cflags='-g -traceback -cpp',
-      lflags = "",
       f90_cflags="",
       cflags_devel="-O0",
       cpp_cflags="",
+      cflags_optim="-Ofast",
    )
 }
 compilers["llvm"] = Compiler(**{
@@ -38,21 +40,41 @@ compilers["llvm"] = Compiler(**{
    "cpp": 'clang++'
 })
 
-def test_compiler(c : Compiler):
-   prog = f"test_{c.f90}"
-   # Insist on valgind, because this is a container implementation with raw pointers inside:
-   return f"""
-      {c.f90} {c.cflags} {c.f90_cflags} fhash_modules.f90 fhash_test.f90 -o {prog}
-      valgrind --quiet ./{prog}
-      echo {c.f90} passed
-   """.strip()
+Task = collections.namedtuple("Task", 'f90_files optim')
+tasks = {
+   "test": Task("fhash_modules.f90 fhash_test.f90", optim=False),
+   "benchmark_f90": Task("benchmark.f90", optim=True),
+}
 
-tests = [f"({test_compiler(c)}) &" for _, c in compilers.items()]
-test_all = "\n".join(tests)
+def exec_task(taskname, task : Task, c : Compiler):
+   prog = f"{taskname}_{c.f90}"
+   # Insist on valgind, because this is a container implementation with raw pointers inside:
+   cflags = f"{c.cflags} {c.f90_cflags}"
+   if task.optim:
+      cflags += " " + c.cflags_optim
+      prefix = ""
+   else:
+      cflags += " " + c.cflags_devel
+      prefix = "valgrind --quiet"
+
+   return f"""
+      {c.f90} {cflags} {task.f90_files} -o {prog}
+      {prefix} ./{prog}
+   """
+
+parser = argparse.ArgumentParser(description="output Bash code that runs tests and/or benchmarks for the fhash library")
+parser.add_argument("--compilers", "-c", nargs='+', type=str, choices=compilers, default=compilers)
+parser.add_argument("--tasks", "-t", nargs='+', type=str, choices=tasks, default=tasks)
+args = parser.parse_args()
+
+all_tasks = "\n".join(
+   f"({exec_task(t, tasks[t], compilers[c])})"
+   for t in args.tasks
+   for c in args.compilers
+)
 test_prog = f"""(
    set -e
-   {test_all}
-   wait
-   echo 'ALL TESTS PASSED'
+   {all_tasks}
+   echo 'done'
 )"""
 print(test_prog)
