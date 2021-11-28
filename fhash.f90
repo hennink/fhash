@@ -121,7 +121,6 @@ module _FHASH_MODULE_NAME
       ! Returns number of keys.
       procedure, non_overridable, public :: key_count
 
-      ! Set the value at a given a key.
       procedure, non_overridable, public :: set
 
       ! Get the value at the given key.
@@ -274,37 +273,46 @@ contains
       class(_FHASH_TYPE_NAME), intent(inout) :: this
       KEY_TYPE, intent(in) :: key
       VALUE_TYPE, intent(in) :: value
-      integer :: bucket_id
-      logical :: is_new
+      
+      type(_FHASH_TYPE_KV_TYPE_NAME), allocatable :: kv
 
       call assert(associated(this%buckets), "set: fhash has not been initialized")
 
-      bucket_id = this%key2bucket(key)
-      call node_set(this%buckets(bucket_id), key, value, is_new)
+      allocate(kv)
+      kv%key = key
+      kv%value VALUE_ASSIGNMENT value
+      call move_into_fhash(this, kv)
+   end subroutine
+
+   subroutine move_into_fhash(this, kv)
+      class(_FHASH_TYPE_NAME), intent(inout) :: this
+      type(_FHASH_TYPE_KV_TYPE_NAME), allocatable, intent(inout) :: kv
+
+      integer :: bucket_id
+      logical :: is_new
+
+      call assert(associated(this%buckets), "INTERNAL ERROR: move_into_fhash: fhash has not been initialized")
+
+      bucket_id = this%key2bucket(kv%key)
+      call move_into_node_list(this%buckets(bucket_id), kv, is_new)
 
       if (is_new) this%n_keys = this%n_keys + 1
    end subroutine
 
-   recursive subroutine node_set(this, key, value, is_new)
-      ! If kv is not allocated, allocate and set to the key, value passed in.
-      ! If key is present and the same as the key passed in, overwrite the value.
-      ! Otherwise, defer to the next node (allocate if not allocated)
+   recursive subroutine move_into_node_list(this, kv, is_new)
       type(node_type), intent(inout) :: this
-      KEY_TYPE, intent(in) :: key
-      VALUE_TYPE, intent(in) :: value
+      type(_FHASH_TYPE_KV_TYPE_NAME), allocatable, intent(inout) :: kv
       logical, intent(out) :: is_new
 
       if (.not. allocated(this%kv)) then
-         allocate(this%kv)
-         this%kv%key = key
-         this%kv%value VALUE_ASSIGNMENT value
+         call move_alloc(kv, this%kv)
          is_new = .true.
-      else if (keys_equal(this%kv%key, key)) then
-         this%kv%value VALUE_ASSIGNMENT value
+      else if (keys_equal(this%kv%key, kv%key)) then
+         this%kv%value VALUE_ASSIGNMENT kv%value
          is_new = .false.
       else
          if (.not. associated(this%next)) allocate(this%next)
-         call node_set(this%next, key, value, is_new)
+         call move_into_node_list(this%next, kv, is_new)
       endif
    end subroutine
 
