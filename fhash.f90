@@ -623,21 +623,6 @@ contains
       if (associated(node%next)) s = s + node_deep_storage_size(node%next, keyval_ss)
    end function
 
-   impure elemental subroutine clear(this)
-      class(_FHASH_TYPE_NAME), intent(inout) :: this
-
-      integer :: i
-
-      this%n_keys = 0
-      if (associated(this%buckets)) then
-         do i = 1, size(this%buckets)
-            call clear_children(this%buckets(i))
-            if (allocated(this%buckets(i)%kv)) deallocate(this%buckets(i)%kv)
-         enddo
-         deallocate(this%buckets)
-      endif
-   end subroutine
-
 #ifdef _FHASH_FINAL_IS_IMPLEMENTED
    impure elemental subroutine clear_final(this)
       type(_FHASH_TYPE_NAME), intent(inout) :: this
@@ -646,16 +631,28 @@ contains
    end subroutine
 #endif
 
-   subroutine clear_children(node)
+   impure elemental subroutine clear(this)
+      class(_FHASH_TYPE_NAME), intent(inout) :: this
+
+      this%n_keys = 0
+      if (associated(this%buckets)) then
+         call clear_node_and_children(this%buckets)
+         deallocate(this%buckets)
+      endif
+   end subroutine
+
+   impure elemental subroutine clear_node_and_children(node)
       ! Not a recursive subroutine, because (i) this is much more performant, and
       ! (ii) gfortran thinks that it cannot be both elemental and recursive.
       _FHASH_FINAL_TYPEORCLASS(node_type), intent(inout) :: node
 
       type(node_type), pointer :: prev, next
 
+      if (allocated(node%kv)) deallocate(node%kv)
+
       next => node%next
       do
-         if (.not. associated(next)) return
+         if (.not. associated(next)) exit
          prev => next
          next => prev%next
          deallocate(prev)
