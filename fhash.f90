@@ -175,10 +175,6 @@ module _FHASH_MODULE_NAME
       module procedure :: default_hash__int_array
    end interface
 
-   interface all
-      module procedure :: scalar_all
-   end interface
-
    interface
       integer function compare_keys_i(a, b)
          import
@@ -193,11 +189,22 @@ contains
    logical function keys_equal(a, b)
       KEY_TYPE, intent(in) :: a, b
 
+      interface all
+         procedure :: scalar_all
+      end interface
+
 #ifdef KEYS_EQUAL_FUNC
       keys_equal = KEYS_EQUAL_FUNC(a, b)
 #else
       keys_equal = all(a == b)
 #endif
+
+   contains
+      logical function scalar_all(scal)
+         logical, intent(in) :: scal
+
+         scalar_all = scal
+      end function
    end function
 
    function bucket_count(this)
@@ -737,12 +744,6 @@ contains
          ! Compiler bug?
          hash = ieor(hash, key(i) + magic_number + ishft(hash, 6) + ishft(hash, -2))
       enddo
-   end function
-
-   logical function scalar_all(scal)
-      logical, intent(in) :: scal
-
-      scalar_all = scal
    end function
 
    impure elemental subroutine assert(condition, msg)
