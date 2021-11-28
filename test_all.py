@@ -2,6 +2,7 @@
 
 import argparse
 import collections
+from distutils import util
 
 Compiler = collections.namedtuple("Compiler", "f90 cpp cflags cflags_devel cflags_optim f90_cflags cpp_cflags")
 
@@ -48,23 +49,25 @@ tasks = {
 
 def exec_task(taskname, task : Task, c : Compiler):
    prog = f"{taskname}_{c.f90}"
-   # Insist on valgind, because this is a container implementation with raw pointers inside:
+   call = f"./{prog}"
+   if args.valgrind and not task.optim:
+      call = f"valgrind --quiet {call}"
+
    cflags = f"{c.cflags} {c.f90_cflags}"
    if task.optim:
       cflags += " " + c.cflags_optim
-      prefix = ""
    else:
       cflags += " " + c.cflags_devel
-      prefix = "valgrind --quiet"
 
    return f"""
       {c.f90} {cflags} {task.f90_files} -o {prog}
-      {prefix} ./{prog}
+      {call}
    """
 
 parser = argparse.ArgumentParser(description="output Bash code that runs tests and/or benchmarks for the fhash library")
 parser.add_argument("--compilers", "-c", nargs='+', type=str, choices=compilers, default=compilers)
 parser.add_argument("--tasks", "-t", nargs='+', type=str, choices=tasks, default=tasks)
+parser.add_argument("--valgrind", "-v", type=util.strtobool, default=True, help="run tasks under valgrind (unless they require optimization)")
 args = parser.parse_args()
 
 all_tasks = "\n".join(
