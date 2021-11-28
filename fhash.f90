@@ -708,8 +708,8 @@ contains
       call assert(associated(fhash_target%buckets), "cannot start iteration when fhash is empty")
 
       this%bucket_id = 1
-      this%next_node => fhash_target%buckets(1)
       this%buckets_ptr => fhash_target%buckets
+      this%next_node => fhash_target%buckets(1)
       if (.not. allocated(this%next_node%kv)) call progress_to_next_node(this)
    end subroutine
 

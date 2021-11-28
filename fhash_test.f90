@@ -11,17 +11,29 @@ contains
       use int_ints_ptr_mod
 
       type(i2char_t) :: i2char
+      type(i2char_kv_t) :: i2char_kv(0)
       type(ints_double_t) :: i2r
+      type(ints_double_kv_t) :: i2r_kv(0)
       type(int_ints_ptr_t) :: i2i_ptr
+      type(int_ints_ptr_kv_t) :: i2i_ptr_kv(0)
 
       call assert(i2char%n_collisions() == 0, "expected i2char%n_collisions() == 0")
       call assert(i2char%key_count() == 0, "expected i2char%key_count() == 0")
-
+      call i2char%reserve(1)
+      call i2char%as_list(i2char_kv)
+      call assert(size(i2char_kv) == 0, "expected empty list")
+      
       call assert(i2r%n_collisions() == 0, "expected i2r%n_collisions() == 0")
       call assert(i2r%key_count() == 0, "expected i2r%key_count() == 0")
+      call i2r%reserve(1)
+      call i2r%as_list(i2r_kv)
+      call assert(size(i2r_kv) == 0, "expected empty list")
       
       call assert(i2i_ptr%n_collisions() == 0, "expected i2i_ptr%n_collisions() == 0")
       call assert(i2i_ptr%key_count() == 0, "expected i2i_ptr%key_count() == 0")
+      call i2i_ptr%reserve(1)
+      call i2i_ptr%as_list(i2i_ptr_kv)
+      call assert(size(i2i_ptr_kv) == 0, "expected empty list")
    end subroutine
 
    subroutine test_insert_get_and_remove_int_ints_ptr()
