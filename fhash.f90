@@ -170,11 +170,6 @@ module _FHASH_MODULE_NAME
       procedure, non_overridable, public :: next
    end type
 
-   interface default_hash
-      module procedure :: default_hash__int
-      module procedure :: default_hash__int_array
-   end interface
-
    interface
       integer function compare_keys_i(a, b)
          import
@@ -671,6 +666,10 @@ contains
       KEY_TYPE, intent(in) :: key
 
       integer :: hash
+      interface default_hash
+         module procedure :: default_hash__int
+         module procedure :: default_hash__int_array
+      end interface
 
 #ifdef HASH_FUNC
       hash = HASH_FUNC(key)
@@ -678,6 +677,30 @@ contains
       hash = default_hash(key)
 #endif
       bucket_id = modulo(hash, size(this%buckets)) + 1
+   end function
+
+   integer function default_hash__int(key) result(hash)
+      integer, intent(in) :: key
+
+      hash = key
+   end function
+
+   integer function default_hash__int_array(key) result(hash)
+      integer, intent(in) :: key(:)
+
+      real(kind(1.0d0)), parameter :: phi = (sqrt(5.0d0) + 1) / 2
+      ! Do not use `nint` intrinsic, because ifort claims that  "Fortran 2018 specifies that
+      ! "an elemental intrinsic function here be of type integer or character and
+      !  each argument must be an initialization expr of type integer or character":
+      integer, parameter :: magic_number = 0.5d0 + 2.0d0**bit_size(hash) * (1 - 1 / phi)
+      integer :: i
+
+      hash = 0
+      do i = 1, size(key)
+         ! This triggers an error in `gfortran` (version 9.3.0) with the `-ftrapv` option.
+         ! Compiler bug?
+         hash = ieor(hash, key(i) + magic_number + ishft(hash, 6) + ishft(hash, -2))
+      enddo
    end function
 
    subroutine begin(this, fhash_target)
@@ -721,30 +744,6 @@ contains
       if (present(status)) status = 0
       this%node_ptr => this%node_ptr%next
    end subroutine
-
-   integer function default_hash__int(key) result(hash)
-      integer, intent(in) :: key
-
-      hash = key
-   end function
-
-   integer function default_hash__int_array(key) result(hash)
-      integer, intent(in) :: key(:)
-
-      real(kind(1.0d0)), parameter :: phi = (sqrt(5.0d0) + 1) / 2
-      ! Do not use `nint` intrinsic, because ifort claims that  "Fortran 2018 specifies that
-      ! "an elemental intrinsic function here be of type integer or character and
-      !  each argument must be an initialization expr of type integer or character":
-      integer, parameter :: magic_number = 0.5d0 + 2.0d0**bit_size(hash) * (1 - 1 / phi)
-      integer :: i
-
-      hash = 0
-      do i = 1, size(key)
-         ! This triggers an error in `gfortran` (version 9.3.0) with the `-ftrapv` option.
-         ! Compiler bug?
-         hash = ieor(hash, key(i) + magic_number + ishft(hash, 6) + ishft(hash, -2))
-      enddo
-   end function
 
    impure elemental subroutine assert(condition, msg)
       use, intrinsic :: iso_fortran_env, only: error_unit
