@@ -67,7 +67,8 @@ def exec_task(taskname, task : Task, c : Compiler):
 parser = argparse.ArgumentParser(description="output Bash code that runs tests and/or benchmarks for the fhash library")
 parser.add_argument("--compilers", "-c", nargs='+', type=str, choices=compilers, default=compilers)
 parser.add_argument("--tasks", "-t", nargs='+', type=str, choices=tasks, default=tasks)
-parser.add_argument("--valgrind", "-v", type=util.strtobool, default=True, help="run tasks under valgrind (unless they require optimization)")
+parser.add_argument("--verbose", "-v", type=util.strtobool, default=False)
+parser.add_argument("--valgrind", "-g", type=util.strtobool, default=True, help="run tasks under valgrind (unless they require optimization)")
 args = parser.parse_args()
 
 all_tasks = "\n".join(
@@ -77,6 +78,7 @@ all_tasks = "\n".join(
 )
 test_prog = f"""(
    set -e
+   {"set -x" if args.verbose else ""}
    {all_tasks}
    echo 'done'
 )"""
