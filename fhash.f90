@@ -170,6 +170,13 @@ module _FHASH_MODULE_NAME
       procedure, non_overridable, public :: next
    end type
 
+   integer, parameter :: bucket_sizes(*) = [ &
+         5, 11, 23, 47, 97, 199, 409, 823, 1741, 3469, 6949, 14033, &
+         28411, 57557, 116731, 236897, 480881, 976369,1982627, 4026031, &
+         8175383, 16601593, 33712729, 68460391, 139022417, 282312799, &
+         573292817, 1164186217, 2147483647 &
+   ]
+
    interface
       integer function compare_keys_i(a, b)
          import
@@ -243,18 +250,14 @@ contains
       integer, intent(in) :: n_buckets
 
       integer :: i
-      integer, parameter :: sizes(*) = [5, 11, 23, 47, 97, 199, 409, 823, 1741, 3469, 6949, 14033, &
-      & 28411, 57557, 116731, 236897, 480881, 976369,1982627, 4026031, &
-      & 8175383, 16601593, 33712729, 68460391, 139022417, 282312799, &
-      & 573292817, 1164186217, 2147483647]
-      integer, parameter :: n = size(sizes)
+      integer, parameter :: n = size(bucket_sizes)
 
-      call assert(sizes(2:) - sizes(:n-1) > 0, "PROGRAMMING ERROR: sizes should be strictly increasing")
-      call assert(sizes(n) >= n_buckets, "Did not expect to need this many buckets.")
+      call assert(bucket_sizes(2:) - bucket_sizes(:n-1) > 0, "PROGRAMMING ERROR: bucket_sizes should be strictly increasing")
+      call assert(bucket_sizes(n) >= n_buckets, "Did not expect to need this many buckets.")
 
       do i = 1, n
-         if (sizes(i) >= n_buckets) then
-            allocate(this%buckets(sizes(i)))
+         if (bucket_sizes(i) >= n_buckets) then
+            allocate(this%buckets(bucket_sizes(i)))
             exit
          endif
       enddo
