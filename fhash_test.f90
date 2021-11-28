@@ -24,6 +24,129 @@ contains
       call assert(i2i_ptr%key_count() == 0, "expected i2i_ptr%key_count() == 0")
    end subroutine
 
+   subroutine test_insert_get_and_remove_int_ints_ptr()
+      use int_ints_ptr_mod
+
+      type(int_ints_ptr_t) :: h
+      integer, parameter ::  num_values = 50
+      type(ints_type), pointer :: pValue
+      type(ints_type), target, allocatable :: pValues(:)
+      logical :: success
+      integer ::  i, key
+      type(int_ints_ptr_iter_t) :: it
+
+      ! prepare
+      allocate(pValues(num_values))
+
+      ! create
+      call h%reserve(5)
+
+      ! add
+      do i = 1, num_values
+         allocate(pValues(i)%ints(2))
+         pValues(i)%ints(1) = i
+         pValue => pValues(i)
+         call h%set(i, pValue)
+      end do
+
+      if (h%key_count() .ne. num_values) error stop 'expect different key count'
+
+      ! get
+      do i = num_values, i, -1
+         call h%get(i, pValue, success)
+         if (.not. success) error stop 'expect a value for given key '
+         if (pValue%ints(1) .ne. pValues(i)%ints(1)) error stop 'expect different value for given key'
+      end do
+
+      ! remove first item
+      do i = 1, num_values
+         if (mod(i, 5) .eq. 1) then
+            call h%remove(i, success)
+            if (.not. success) error stop 'expect to successfully remove item with given key '
+         endif
+      end do
+      if (h%key_count() .ne. num_values-10) error stop 'expect different key count'
+
+      ! remove first item (fail)
+      do i = 1, num_values
+         if (mod(i, 5) .eq. 1) then
+            call h%remove(i, success)
+            if (success) error stop 'expect that remove item with given key fails'
+         endif
+      end do
+      if (h%key_count() .ne. num_values-10) error stop 'expect  different key count'
+
+      ! remove middle item
+      do i = 1, num_values
+         if (mod(i, 5) .eq. 4) then
+            call h%remove(i, success)
+            if (.not. success) error stop 'expect to successfully remove item with given key '
+         endif
+      end do
+      if (h%key_count() .ne. num_values-20) error stop 'expect different key count'
+
+      nullify (pValue)
+
+      ! Setup iterator.
+      call it%begin(h)
+      do while (it%has_next())
+         call it%next(key, pValue)
+         if (key .ne. pValue%ints(1)) error stop 'expect to retrieve matching key value pair'
+         if (mod(key, 5) .eq. 1) error stop 'expect not to get deleted keys'
+         if (mod(key, 5) .eq. 4) error stop 'expect not to get deleted keys'
+      end do
+      call assert(.not. it%has_next(), "inconsistent results from it%has_next()")
+
+      call h%clear()
+   end subroutine
+
+   subroutine test_iterate()
+      use ints_double_mod
+
+      type(ints_double_t) :: h
+      type(ints_double_iter_t) :: it
+      type(ints_type) :: key
+      real(real64) :: value
+      integer :: i, j
+      logical, allocatable :: found(:)
+      integer :: i_found
+
+      call h%reserve(10)
+      allocate(key%ints(10))
+
+      ! Setup keys and values.
+      key%ints = 0
+      do i = 1, 10
+         key%ints(i) = i
+         call h%set(key, i * 0.5_real64)
+      enddo
+
+      ! Setup iterator.
+      call it%begin(h)
+
+      allocate(found(10))
+      found(:) = .false.
+
+      do i = 1, 10
+         call assert(it%has_next(), "it ran out of elements")
+         call it%next(key, value)
+
+         ! Check for consistency.
+         i_found = nint(value / 0.5)
+         if (found(i_found)) error stop 'expect no duplicate'
+         found(i_found) = .true.
+         do j = 1, i_found
+            if (key%ints(j) /= j) error stop 'expect to get j'
+         enddo
+         do j = i_found + 1, 10
+            if (key%ints(j) /= 0) error stop 'expect to get 0'
+         enddo
+      enddo
+      call assert(.not. it%has_next(), 'expect to return -1')
+
+      call h%clear()
+   end subroutine
+
    subroutine test_as_list
       use i2char_mod
 
@@ -206,14 +329,14 @@ contains
          type(ints_type) :: key
          real(real64) :: val
          integer :: i
-         integer :: status
          logical :: have_seen(size(keys))
 
          have_seen = .false.
          call iter%begin(fhash)
          do
-            call iter%next(key, val, status)
-            if (status /= 0) exit
+            if (.not. iter%has_next()) exit
+
+            call iter%next(key, val)
 
             i = nint(val)
             call assert(abs(val - i) <= 10*epsilon(val), "check_kv: bad value")
@@ -325,127 +448,5 @@ contains
 
       call h%get(0, value_ptr3, success)
       if (value_ptr3%ints(1) /= 1) error stop 'expect ints(1) to be 1'
-   end subroutine
-
-   subroutine test_insert_get_and_remove_int_ints_ptr()
-      type(int_ints_ptr_t) :: h
-      integer, parameter ::  num_values = 50
-      type(ints_type), pointer :: pValue
-      type(ints_type), target, allocatable :: pValues(:)
-      logical :: success
-      integer ::  i, key, status
-      type(int_ints_ptr_iter_t) :: it
-
-      ! prepare
-      allocate(pValues(num_values))
-
-      ! create
-      call h%reserve(5)
-
-      ! add
-      do i = 1, num_values
-         allocate(pValues(i)%ints(2))
-         pValues(i)%ints(1) = i
-         pValue => pValues(i)
-         call h%set(i, pValue)
-      end do
-
-      if (h%key_count() .ne. num_values) error stop 'expect different key count'
-
-      ! get
-      do i = num_values, i, -1
-         call h%get(i, pValue, success)
-         if (.not. success) error stop 'expect a value for given key '
-         if (pValue%ints(1) .ne. pValues(i)%ints(1)) error stop 'expect different value for given key'
-      end do
-
-      ! remove first item
-      do i = 1, num_values
-         if (mod(i, 5) .eq. 1) then
-            call h%remove(i, success)
-            if (.not. success) error stop 'expect to successfully remove item with given key '
-         endif
-      end do
-      if (h%key_count() .ne. num_values-10) error stop 'expect different key count'
-
-      ! remove first item (fail)
-      do i = 1, num_values
-         if (mod(i, 5) .eq. 1) then
-            call h%remove(i, success)
-            if (success) error stop 'expect that remove item with given key fails'
-         endif
-      end do
-      if (h%key_count() .ne. num_values-10) error stop 'expect  different key count'
-
-      ! remove middle item
-      do i = 1, num_values
-         if (mod(i, 5) .eq. 4) then
-            call h%remove(i, success)
-            if (.not. success) error stop 'expect to successfully remove item with given key '
-         endif
-      end do
-      if (h%key_count() .ne. num_values-20) error stop 'expect different key count'
-
-      nullify (pValue)
-
-      ! Setup iterator.
-      call it%begin(h)
-      do while (.true.)
-         call it%next(key, pValue, status)
-         if (status /= 0) exit
-         if (key .ne. pValue%ints(1)) error stop 'expect to retrieve matching key value pair'
-         if (mod(key, 5) .eq. 1) error stop 'expect not to get deleted keys'
-         if (mod(key, 5) .eq. 4) error stop 'expect not to get deleted keys'
-      end do
-
-      call h%clear()
-   end subroutine
-
-   subroutine test_iterate()
-      type(ints_double_t) :: h
-      type(ints_double_iter_t) :: it
-      type(ints_type) :: key
-      real(real64) :: value
-      integer :: i, j
-      integer :: status
-      logical, allocatable :: found(:)
-      integer :: i_found
-      call h%reserve(10)
-      allocate(key%ints(10))
-
-      ! Setup keys and values.
-      key%ints = 0
-      do i = 1, 10
-         key%ints(i) = i
-         call h%set(key, i * 0.5_real64)
-      enddo
-
-      ! Setup iterator.
-      call it%begin(h)
-
-      allocate(found(10))
-      found(:) = .false.
-
-      do i = 1, 10
-         call it%next(key, value, status)
-         if (status /= 0) error stop 'expect to get key value with status 0'
-
-         ! Check for consistency.
-         i_found = nint(value / 0.5)
-         if (found(i_found)) error stop 'expect no duplicate'
-         found(i_found) = .true.
-         do j = 1, i_found
-            if (key%ints(j) /= j) error stop 'expect to get j'
-         enddo
-         do j = i_found + 1, 10
-            if (key%ints(j) /= 0) error stop 'expect to get 0'
-         enddo
-      enddo
-
-      ! Check end of hash table.
-      call it%next(key, value, status)
-      if (status /= -1) error stop 'expect to return -1'
-
-      call h%clear()
    end subroutine
 end program

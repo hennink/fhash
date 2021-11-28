@@ -159,14 +159,12 @@ module _FHASH_MODULE_NAME
       private
 
       integer :: bucket_id
-      type(node_type), pointer :: node_ptr => null()
+      type(node_type), pointer :: next_node => null()
       type(_FHASH_TYPE_NAME), pointer :: fhash_ptr => null()
 
    contains
-      ! Set the iterator to the beginning of a hash table.
       procedure, non_overridable, public :: begin
-
-      ! Get the key value of the next element and advance the iterator.
+      procedure, non_overridable, public :: has_next
       procedure, non_overridable, public :: next
    end type
 
@@ -496,16 +494,15 @@ contains
 
       integer :: i, n
       type(_FHASH_TYPE_ITERATOR_NAME) :: iter
-      integer :: iter_stat
 
       n = this%key_count()
       call assert(size(kv_list) == n, "as_list: kv_list has a bad size")
 
       call iter%begin(this)
       do i = 1, n
-         call iter%next(kv_list(i)%key, kv_list(i)%value, iter_stat)
-         call assert(iter_stat == 0, "as_list: internal error: iterator stopped unexpectedly")
+         call iter%next(kv_list(i)%key, kv_list(i)%value)
       enddo
+      call assert(.not. iter%has_next(), "INTERNAL ERROR: as_list: iterator has too many elements")
    end subroutine
 
    subroutine as_sorted_list(this, kv_list, compare)
@@ -714,39 +711,49 @@ contains
       call assert(associated(fhash_target%buckets), "cannot start iteration when fhash is empty")
 
       this%bucket_id = 1
-      this%node_ptr => fhash_target%buckets(1)
+      this%next_node => fhash_target%buckets(1)
       this%fhash_ptr => fhash_target
+      if (.not. allocated(this%next_node%kv)) call progress_to_next_node(this)
    end subroutine
 
-   subroutine next(this, key, value, status)
+   logical function has_next(this)
+      class(_FHASH_TYPE_ITERATOR_NAME), intent(in) :: this
+
+      has_next = associated(this%next_node)
+   end function
+
+   subroutine next(this, key, value)
       class(_FHASH_TYPE_ITERATOR_NAME), intent(inout) :: this
       KEY_TYPE, intent(out) :: key
       VALUE_TYPE, intent(out) :: value
-      integer, optional, intent(out) :: status
 
-      call assert(associated(this%fhash_ptr), "next: iterator has not been initialized")
+      call assert(this%has_next(), "next: iterator has no next element")
+
+      key = this%next_node%kv%key
+      value VALUE_ASSIGNMENT this%next_node%kv%value
+      call progress_to_next_node(this)
+   end subroutine
+
+   subroutine progress_to_next_node(this)
+      class(_FHASH_TYPE_ITERATOR_NAME), intent(inout) :: this
+
+      call assert(associated(this%next_node), "INTERNAL ERROR: progress_to_next_node called on null next_node")
 
       do
-         if (associated(this%node_ptr)) then
-            if (allocated(this%node_ptr%kv)) exit
+         if (associated(this%next_node%next)) then
+            this%next_node => this%next_node%next
+            exit
          endif
 
-         if (this%bucket_id < size(this%fhash_ptr%buckets)) then
-            this%bucket_id = this%bucket_id + 1
-            this%node_ptr => this%fhash_ptr%buckets(this%bucket_id)
-         else
-            if (present(status)) status = -1
-#ifdef VALUE_TYPE_INIT
-            value VALUE_ASSIGNMENT VALUE_TYPE_INIT
-#endif
-            return
+         if (this%bucket_id == size(this%fhash_ptr%buckets)) then
+            this%next_node => null()
+            exit
          endif
+
+         this%bucket_id = this%bucket_id + 1
+         this%next_node => this%fhash_ptr%buckets(this%bucket_id)
+         if (allocated(this%next_node%kv)) exit
       enddo
-
-      key = this%node_ptr%kv%key
-      value VALUE_ASSIGNMENT this%node_ptr%kv%value
-      if (present(status)) status = 0
-      this%node_ptr => this%node_ptr%next
    end subroutine
 
    impure elemental subroutine assert(condition, msg)
