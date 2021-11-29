@@ -451,7 +451,9 @@ contains
       real(real64), pointer :: val_ptr
       integer :: i
       logical :: success
+
       call h%reserve(5)
+      h%auto_resize = .false.
       allocate(key%ints(10))
 
       key%ints = 0

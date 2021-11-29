@@ -105,6 +105,7 @@ module _FHASH_MODULE_NAME
    type _FHASH_TYPE_NAME
       private
 
+      logical, public :: auto_resize = .true.
       integer :: n_keys = 0
       type(node_type), contiguous, pointer :: buckets(:) => null()
 
@@ -246,7 +247,7 @@ contains
    end function
 
    impure elemental subroutine reserve(this, n_buckets)
-      class(_FHASH_TYPE_NAME), intent(out) :: this
+      class(_FHASH_TYPE_NAME), intent(inout) :: this
       integer, intent(in) :: n_buckets
 
       integer :: i
@@ -254,6 +255,8 @@ contains
 
       call assert(bucket_sizes(2:) - bucket_sizes(:n-1) > 0, "PROGRAMMING ERROR: bucket_sizes should be strictly increasing")
       call assert(bucket_sizes(n) >= n_buckets, "Did not expect to need this many buckets.")
+
+      call clear(this)
 
       do i = 1, n
          if (bucket_sizes(i) >= n_buckets) then
@@ -270,7 +273,6 @@ contains
 
       type(_FHASH_TYPE_NAME) :: new
       type(_FHASH_TYPE_ITERATOR_NAME) :: iter
-
       type(node_type), pointer :: prev
       logical :: dealloc_prev
       integer :: i, n
@@ -280,9 +282,10 @@ contains
          return
       endif
 
-      call new%reserve(new_n_buckets)
       n = this%key_count()
 
+      call new%reserve(new_n_buckets)
+      new%auto_resize = .false.
       call iter%begin(this)
       do i = 1, n
          dealloc_prev = .not. iter%next_is_at_base
@@ -315,9 +318,12 @@ contains
 
       if (.not. associated(this%buckets)) call this%reserve(1)
 
+      call resize_if_necessary(this)
+
       allocate(kv)
       kv%key = key
       kv%value VALUE_ASSIGNMENT value
+
       call move_into_fhash(this, kv)
    end subroutine
 
@@ -436,6 +442,8 @@ contains
 
       if (.not. associated(this%buckets)) call this%reserve(1)
 
+      call resize_if_necessary(this)
+
       bucket_id = this%key2bucket(key)
       call assert(1 <= bucket_id .and. bucket_id <= size(this%buckets), "get: fhash has not been initialized")
       bucket => this%buckets(bucket_id)
@@ -472,6 +480,12 @@ contains
       endif
    end subroutine
 #endif
+
+   subroutine resize_if_necessary(this)
+      class(_FHASH_TYPE_NAME), intent(inout) :: this
+
+      if (this%auto_resize .and. this%n_keys > 2/3.0 * size(this%buckets)) call this%resize(size(this%buckets) + 1)
+   end subroutine
 
    subroutine remove(this, key, success)
       class(_FHASH_TYPE_NAME), intent(inout) :: this
@@ -628,6 +642,7 @@ contains
 
       if (.not. associated(rhs%buckets)) return
 
+      lhs%auto_resize = rhs%auto_resize
       lhs%n_keys = rhs%n_keys
       allocate(lhs%buckets(size(rhs%buckets)))
       do i = 1, size(lhs%buckets)
