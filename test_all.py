@@ -51,7 +51,7 @@ def exec_task(taskname, task : Task, c : Compiler):
    prog = f"{taskname}_{c.f90}"
    call = f"./{prog}"
    if args.valgrind and not task.optim:
-      call = f"valgrind --quiet {call}"
+      call = f"valgrind --quiet --leak-check=full {call}"
 
    cflags = f"{c.cflags} {c.f90_cflags}"
    if task.optim:
