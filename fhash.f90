@@ -313,7 +313,7 @@ contains
       
       type(_FHASH_TYPE_KV_TYPE_NAME), allocatable :: kv
 
-      call assert(associated(this%buckets), "set: fhash has not been initialized")
+      if (.not. associated(this%buckets)) call this%reserve(1)
 
       allocate(kv)
       kv%key = key
@@ -399,7 +399,7 @@ contains
       integer :: bucket_id
       type(node_type), pointer :: bucket
 
-      call assert(associated(this%buckets), "get: fhash has not been initialized")
+      call assert(associated(this%buckets), "get_ptr: fhash has not been initialized")
 
       bucket_id = this%key2bucket(key)
       call assert(1 <= bucket_id .and. bucket_id <= size(this%buckets), "get: fhash has not been initialized")
@@ -434,7 +434,7 @@ contains
       type(node_type), pointer :: bucket
       logical :: is_new
 
-      call assert(associated(this%buckets), "get: fhash has not been initialized")
+      if (.not. associated(this%buckets)) call this%reserve(1)
 
       bucket_id = this%key2bucket(key)
       call assert(1 <= bucket_id .and. bucket_id <= size(this%buckets), "get: fhash has not been initialized")
@@ -482,7 +482,10 @@ contains
       logical ::  locSuccess
       type(node_type), pointer :: first, temp
 
-      call assert(associated(this%buckets), "remove: fhash has not been initialized")
+      if (.not. associated(this%buckets)) then
+         success = .false.
+         return
+      endif
 
       bucket_id = this%key2bucket(key)
       first => this%buckets(bucket_id)
@@ -761,7 +764,10 @@ contains
       class(_FHASH_TYPE_ITERATOR_NAME), intent(inout) :: this
       type(_FHASH_TYPE_NAME), intent(in) :: fhash_target
 
-      call assert(associated(fhash_target%buckets), "cannot start iteration when fhash is empty")
+      if (.not. associated(fhash_target%buckets)) then
+         this%next_node => null()
+         return
+      endif
 
       this%bucket_id = 1
       this%buckets_ptr => fhash_target%buckets
