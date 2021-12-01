@@ -52,17 +52,19 @@ contains
       call check_kv()
 
       call h%resize(100)
+      call assert(h%bucket_count() >= 100, "resizing did not change bucket_count as expected")
       call check_kv()
 
       call h%resize(1000)
+      call assert(h%bucket_count() >= 1000, "resizing did not change bucket_count as expected")
       call check_kv()
 
       call h%resize(1)
+      call assert(h%bucket_count() <= 5, "resizing did not change bucket_count as expected")
       call check_kv()
 
    contains
       subroutine check_kv()
-
          type(i2char_kv_t) :: h_list(size(all_kv))
 
          call h%as_sorted_list(h_list, compare_ints)
