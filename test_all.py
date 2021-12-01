@@ -4,8 +4,7 @@ import argparse
 import collections
 from distutils import util
 
-Compiler = collections.namedtuple("Compiler", "vendor f90 cpp cflags cflags_devel cflags_optim f90_cflags cpp_cflags")
-
+Compiler = collections.namedtuple("Compiler", "vendor f90 cpp cflags f90_cflags cpp_cflags cflags_devel cflags_optim")
 compilers = [
    Compiler(
       vendor = "gnu",
@@ -33,8 +32,8 @@ compilers = [
       f90='ifort', cpp='icpc',
       cflags='-g -traceback',
       f90_cflags="-cpp",
-      cflags_devel="-O0",
       cpp_cflags="-std=c++11",
+      cflags_devel="-O0",
       cflags_optim="-Ofast",
    ),
    Compiler(
@@ -42,20 +41,20 @@ compilers = [
       f90='ifx', cpp='clang++',  # flang is buggier than ifx
       cflags='-g -traceback',
       f90_cflags="-cpp",
-      cflags_devel="-O0",
       cpp_cflags="-std=c++11",
+      cflags_devel="-O0",
       cflags_optim="-Ofast",
    ),
 ]
 
-Task = collections.namedtuple("Task", 'f90_files optim')
-tasks = {
-   "test": Task("fhash_modules.f90 fhash_test.f90", optim=False),
-   "benchmark_f90": Task("benchmark.f90", optim=True),
-   "benchmark_stl": Task("benchmark.cc", optim=True),
-}
+Task = collections.namedtuple("Task", 'name f90_files optim')
+tasks = [
+   Task("test", "fhash_modules.f90 fhash_test.f90", optim=False),
+   Task("benchmark_f90", "benchmark.f90", optim=True),
+   Task("benchmark_stl", "benchmark.cc", optim=True),
+]
 
-def exec_task(taskname, task : Task, c : Compiler):
+def exec_task(task : Task, c : Compiler):
    if all(f.endswith('.f90') for f in task.f90_files.split()):
       compiler = f"{c.f90} {c.f90_cflags}"
    elif all(f.endswith('.cc') for f in task.f90_files.split()):
@@ -68,7 +67,7 @@ def exec_task(taskname, task : Task, c : Compiler):
    else:
       optim_cflags = c.cflags_devel
 
-   prog = f"{taskname}_{c.f90}"
+   prog = f"{task.name}_{c.f90}"
    call = f"./{prog}"
    if args.valgrind and not task.optim:
       call = f"valgrind --quiet --leak-check=full {call}"
@@ -80,21 +79,22 @@ def exec_task(taskname, task : Task, c : Compiler):
 
 parser = argparse.ArgumentParser(description="output Bash code that runs tests and/or benchmarks for the fhash library")
 all_vendors = [c.vendor for c in compilers]
+all_tasks = [t.name for t in tasks]
 parser.add_argument("--compilers", "-c", nargs='+', type=str.lower, choices=all_vendors, default=all_vendors)
-parser.add_argument("--tasks", "-t", nargs='+', type=str.lower, choices=tasks, default=tasks)
-parser.add_argument("--verbose", "-v", type=util.strtobool, default=False)
+parser.add_argument("--tasks", "-t", nargs='+', type=str.lower, choices=all_tasks, default=all_tasks)
+parser.add_argument("--verbose", "-v", type=util.strtobool, default=True)
 parser.add_argument("--valgrind", "-g", type=util.strtobool, default=True, help="run tasks under valgrind (unless they require optimization)")
 args = parser.parse_args()
 
-all_tasks = "\n".join(
-   f"({exec_task(t, tasks[t], c)})"
-   for t in args.tasks
+bash_commands = "\n".join(
+   f"({exec_task(t, c)})"
+   for t in tasks if t.name in args.tasks
    for c in compilers if c.vendor in args.compilers
 )
 test_prog = f"""(
    set -e
    {"set -x" if args.verbose else ""}
-   {all_tasks}
+   {bash_commands}
    echo 'done'
 )"""
 print(test_prog)
