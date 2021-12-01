@@ -72,7 +72,7 @@ module _FHASH_MODULE_NAME
    VALUE_USE
 #undef VALUE_USE
 #endif
-
+   use iso_fortran_env, only: int32, int64
    implicit none
 
    private
@@ -184,6 +184,8 @@ module _FHASH_MODULE_NAME
    end interface
    procedure(compare_keys_i), pointer :: global_compare_ptr => null()
    type(_FHASH_TYPE_KV_TYPE_NAME), pointer :: global_sorted_kv_list_ptr(:) => null()
+
+   integer, parameter :: largest_int = merge(int64, int32, int64 > 0)
 
 contains
    logical function keys_equal(a, b)
@@ -601,26 +603,35 @@ contains
       endif
    end subroutine
 
-   impure elemental integer function fhash_deep_storage_size(this, keyval_ss) result(s)
+   impure elemental integer(largest_int) function fhash_deep_storage_size(this, kv_ss) result(s)
       class(_FHASH_TYPE_NAME), intent(in) :: this
-      integer, intent(in) :: keyval_ss
+      integer, optional, intent(in) :: kv_ss
 
       integer :: i
+      integer(largest_int) :: my_kv_ss
+      type(_FHASH_TYPE_KV_TYPE_NAME) :: dummy
 
-      s = storage_size(this)
+      if (present(kv_ss)) then
+         my_kv_ss = int(kv_ss, kind=largest_int)
+      else
+         my_kv_ss = storage_size(dummy, kind=largest_int)
+      endif
+
+      s = storage_size(this, kind=largest_int)
       if (associated(this%buckets)) then
          do i = 1, size(this%buckets)
-            s = s + node_deep_storage_size(this%buckets(i), keyval_ss)
+            s = s + node_deep_storage_size(this%buckets(i), my_kv_ss)
          enddo
       endif
    end function
 
-   recursive integer function node_deep_storage_size(node, keyval_ss) result(s)
+   recursive integer(largest_int) function node_deep_storage_size(node, kv_ss) result(s)
       type(node_type), intent(in) :: node
-      integer, intent(in) :: keyval_ss
+      integer(largest_int), intent(in) :: kv_ss
 
-      s = storage_size(node) + keyval_ss
-      if (associated(node%next)) s = s + node_deep_storage_size(node%next, keyval_ss)
+      s = storage_size(node, kind=largest_int)
+      if (allocated(node%kv)) s = s + kv_ss
+      if (associated(node%next)) s = s + node_deep_storage_size(node%next, kv_ss)
    end function
 
 #ifdef _FHASH_FINAL_IS_IMPLEMENTED

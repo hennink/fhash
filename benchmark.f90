@@ -47,6 +47,10 @@ contains
       enddo
       call cpu_time(t2)
 
+      ! write(*, '(a, f0.1, a, f0.2, a)') 'bits per entry: ', h%deep_storage_size() / real(n_keys), &
+      !       ', which is ', h%deep_storage_size() / real(n_keys) / storage_size(int2real_kv_t(key=spread(0,1,n_ints), value=0.0)), &
+      !       ' times the minimum'
+
       call h%clear()
       call cpu_time(t3)
 
