@@ -168,7 +168,7 @@ module _FHASH_MODULE_NAME
       procedure, non_overridable, public :: next
    end type
 
-   integer, parameter :: bucket_sizes(*) = [ &
+   integer, parameter :: bucket_sizes(29) = [ &
          5, 11, 23, 47, 97, 199, 409, 823, 1741, 3469, 6949, 14033, &
          28411, 57557, 116731, 236897, 480881, 976369,1982627, 4026031, &
          8175383, 16601593, 33712729, 68460391, 139022417, 282312799, &
@@ -184,6 +184,11 @@ module _FHASH_MODULE_NAME
    end interface
    procedure(compare_keys_i), pointer :: global_compare_ptr => null()
    type(_FHASH_TYPE_KV_TYPE_NAME), pointer :: global_sorted_kv_list_ptr(:) => null()
+
+   interface default_hash
+      module procedure :: default_hash__int
+      module procedure :: default_hash__int_array
+   end interface
 
    integer, parameter :: largest_int = merge(int64, int32, int64 > 0)
 
@@ -739,10 +744,6 @@ contains
       KEY_TYPE, intent(in) :: key
 
       integer :: hash
-      interface default_hash
-         module procedure :: default_hash__int
-         module procedure :: default_hash__int_array
-      end interface
 
 #ifdef HASH_FUNC
       hash = HASH_FUNC(key)
