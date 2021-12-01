@@ -160,7 +160,6 @@ module _FHASH_MODULE_NAME
 
       integer :: bucket_id
       type(node_type), pointer :: next_node => null()
-      logical :: next_is_at_base
       type(node_type), pointer :: buckets_ptr(:) => null()
 
    contains
@@ -272,10 +271,8 @@ contains
       integer, intent(in) :: new_n_buckets
 
       type(_FHASH_TYPE_NAME) :: new
-      type(_FHASH_TYPE_ITERATOR_NAME) :: iter
-      type(node_type), pointer :: prev
-      logical :: dealloc_prev
-      integer :: i, n
+      type(node_type), pointer :: node, next
+      integer :: b, n
 
       if (.not. associated(this%buckets)) then
          call this%reserve(new_n_buckets)
@@ -286,13 +283,17 @@ contains
 
       call new%reserve(new_n_buckets)
       new%auto_resize = .false.
-      call iter%begin(this)
-      do i = 1, n
-         dealloc_prev = .not. iter%next_is_at_base
-         prev => iter%next_node
-         call move_into_fhash(new, prev%kv)
-         call progress_to_next_node(iter)
-         if (dealloc_prev) deallocate(prev)
+      do b = 1, size(this%buckets)
+         node => this%buckets(b)
+         if (allocated(node%kv)) call move_into_fhash(new, node%kv)
+         next => node%next
+         do
+            if (.not. associated(next)) exit
+            node => next
+            next => next%next
+            call move_into_fhash(new, node%kv)
+            deallocate(node)
+         enddo
       enddo
       call assert(n == new%key_count(), "INTERNAL ERROR: resize: inconsistent key count")
 
@@ -342,20 +343,20 @@ contains
       if (is_new) this%n_keys = this%n_keys + 1
    end subroutine
 
-   recursive subroutine move_into_node_list(this, kv, is_new)
-      type(node_type), intent(inout) :: this
+   recursive subroutine move_into_node_list(node, kv, is_new)
+      type(node_type), intent(inout) :: node
       type(_FHASH_TYPE_KV_TYPE_NAME), allocatable, intent(inout) :: kv
       logical, intent(out) :: is_new
 
-      if (.not. allocated(this%kv)) then
-         call move_alloc(kv, this%kv)
+      if (.not. allocated(node%kv)) then
+         call move_alloc(kv, node%kv)
          is_new = .true.
-      else if (keys_equal(this%kv%key, kv%key)) then
-         this%kv%value VALUE_ASSIGNMENT kv%value
+      else if (keys_equal(node%kv%key, kv%key)) then
+         node%kv%value VALUE_ASSIGNMENT kv%value
          is_new = .false.
       else
-         if (.not. associated(this%next)) allocate(this%next)
-         call move_into_node_list(this%next, kv, is_new)
+         if (.not. associated(node%next)) allocate(node%next)
+         call move_into_node_list(node%next, kv, is_new)
       endif
    end subroutine
 
@@ -787,7 +788,6 @@ contains
       this%bucket_id = 1
       this%buckets_ptr => fhash_target%buckets
       this%next_node => fhash_target%buckets(1)
-      this%next_is_at_base = .true.
       if (.not. allocated(this%next_node%kv)) call progress_to_next_node(this)
    end subroutine
 
@@ -817,7 +817,6 @@ contains
       do
          if (associated(this%next_node%next)) then
             this%next_node => this%next_node%next
-            this%next_is_at_base = .false.
             exit
          endif
 
@@ -828,7 +827,6 @@ contains
 
          this%bucket_id = this%bucket_id + 1
          this%next_node => this%buckets_ptr(this%bucket_id)
-         this%next_is_at_base = .true.
          if (allocated(this%next_node%kv)) exit
       enddo
    end subroutine
