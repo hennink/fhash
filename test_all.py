@@ -24,7 +24,7 @@ compilers = [
       -Wno-implicit-interface -Wno-strict-overflow
       """.replace('\n',''),
       cpp_cflags="-std=c++11",
-      cflags_devel="-O0 -fcheck=all -fbounds-check -Warray-bounds -Wstrict-overflow=5 -Wunderflow -ffpe-trap=invalid,zero,overflow",
+      cflags_devel="-O0 -fcheck=all -fbounds-check -Warray-bounds -Wstrict-overflow=5 -Wunderflow -ffpe-trap=invalid,zero,overflow -fstack-protector",
       cflags_optim="-O3",
    ),
    Compiler(
@@ -37,13 +37,22 @@ compilers = [
       cflags_optim="-Ofast",
    ),
    Compiler(
-      vendor = "llvm",
-      f90='ifx', cpp='clang++',  # flang is buggier than ifx
+      vendor = "intel-llvm",
+      f90='ifx', cpp=None,
       cflags='-g -traceback',
       f90_cflags="-cpp",
-      cpp_cflags="-std=c++11",
+      cpp_cflags=None,
       cflags_devel="-O0",
       cflags_optim="-Ofast",
+   ),
+   Compiler(
+      vendor = "llvm",
+      f90='flang', cpp='clang++',
+      cflags='-g -Wdeprecated',
+      f90_cflags="-cpp -std=F18",
+      cpp_cflags="-std=c++11",
+      cflags_devel="-O0 -cl-opt-disable -fdelete-null-pointer-checks -fno-stack-protector -ftrapv", # -fsanitize=<check>
+      cflags_optim="-O3 -ffast-math",
    ),
 ]
 
@@ -56,11 +65,16 @@ tasks = [
 
 def exec_task(task : Task, c : Compiler):
    if all(f.endswith('.f90') for f in task.f90_files.split()):
-      compiler = f"{c.f90} {c.f90_cflags}"
+      compiler = c.f90
+      basic_flags = c.f90_cflags
    elif all(f.endswith('.cc') for f in task.f90_files.split()):
-      compiler = f"{c.cpp} {c.cpp_cflags}"
+      compiler = c.cpp
+      basic_flags = c.cpp_cflags
    else:
       raise NotImplementedError("Cannot deterine language of these files: {task.f90_files}")
+   
+   if compiler is None:
+      return ""
 
    if task.optim:
       optim_cflags = c.cflags_optim
@@ -72,10 +86,10 @@ def exec_task(task : Task, c : Compiler):
    if args.valgrind and not task.optim:
       call = f"valgrind --quiet --leak-check=full {call}"
 
-   return f"""
-      {compiler} {c.cflags} {optim_cflags} {task.f90_files} -o {prog}
+   return f"""(
+      {compiler} {basic_flags} {c.cflags} {optim_cflags} {task.f90_files} -o {prog}
       {call}
-   """
+   )"""
 
 parser = argparse.ArgumentParser(description="output Bash code that runs tests and/or benchmarks for the fhash library")
 all_vendors = [c.vendor for c in compilers]
@@ -87,7 +101,7 @@ parser.add_argument("--valgrind", "-g", type=util.strtobool, default=True, help=
 args = parser.parse_args()
 
 bash_commands = "\n".join(
-   f"({exec_task(t, c)})"
+   exec_task(t, c)
    for t in tasks if t.name in args.tasks
    for c in compilers if c.vendor in args.compilers
 )
